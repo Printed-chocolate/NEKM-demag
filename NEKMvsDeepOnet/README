@@ -1,7 +1,6 @@
 **Files and Descriptions**
 
-* **MH\_NEKM.ipynb**: Solves the modified Helmholtz equation using Model 1 and Model 3.
-* **MH\_DeepONet.ipynb**: Solves the modified Helmholtz equation using Model D1 and Model D3.
 * **./DeepONet**: For Model D
 * **./DeepONet_f**: For Model D3
 * **./DeepONet_g**: For Model D1
+* **MH\_Hybrid.ipynb**: Solves the modified Helmholtz equation using Model D, Model D1 & Model D3, Model D1 & Model 3, Model 1 & Model D3, and Model 1 & Model 3.
