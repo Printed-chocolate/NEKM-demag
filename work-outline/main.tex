@@ -1,0 +1,325 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\numberwithin{equation}{section}
+
+\title{A Kernel Learning Strategy for the Boundary Potential in Demagnetizing Field Computation}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The demagnetizing field is one of the main computational bottlenecks in finite element micromagnetic simulations due to its nonlocal nature. In this note, we consider a hybrid finite element and boundary integral formulation in which the magnetostatic potential is decomposed as \(U=U_1+U_2\). The first component \(U_1\) is obtained from an interior Poisson problem, while the second component \(U_2\) is represented by a single layer potential on the sample boundary. As an initial step toward a learning based demagnetizing field solver, we focus only on the learning of this boundary integral operator. The learned operator is intended to accelerate the nonlocal boundary potential evaluation while preserving the structure of the original finite element demagnetizing field solver. In future work, this boundary operator learning approach may be extended to a fully learned pipeline for the whole demagnetizing field computation.
+\end{abstract}
+
+\section{Introduction}
+
+The computation of the demagnetizing field is one of the central numerical tasks in finite element micromagnetic simulations. In the Landau Lifshitz Gilbert equation, the demagnetizing field enters the effective field and therefore affects both the precessional dynamics and the dissipative relaxation of the magnetization. Unlike the exchange and anisotropy fields, the demagnetizing field is nonlocal. Its evaluation requires the solution of a magnetostatic problem posed in the whole space, which makes it one of the main computational bottlenecks in time dependent micromagnetic simulations.
+
+Let \(\Omega \subset \mathbb{R}^d\) denote the ferromagnetic sample and let \(M\) be the magnetization. In the absence of free currents, the stray field can be written as
+\begin{equation}
+    H_d = -\nabla U,
+\end{equation}
+where the scalar potential \(U\) satisfies a transmission problem. Inside the sample, the potential is driven by the magnetic charge density \(\nabla \cdot M\). Outside the sample, the potential is harmonic. Across the boundary \(\partial\Omega\), the potential is continuous and its normal derivative has a jump determined by the normal component of the magnetization.
+
+A commonly used finite element strategy is to decompose the potential as
+\begin{equation}
+    U = U_1 + U_2.
+\end{equation}
+The first component \(U_1\) is obtained from an interior Poisson problem with homogeneous Dirichlet boundary condition,
+\begin{equation}
+    \Delta U_1 = \nabla \cdot M
+    \quad \text{in } \Omega,
+    \qquad
+    U_1 = 0
+    \quad \text{on } \partial\Omega.
+\end{equation}
+The second component \(U_2\) accounts for the remaining boundary contribution and can be represented by a single layer potential,
+\begin{equation}
+    U_2(x)
+    =
+    \int_{\partial\Omega}
+    N(x-y) g(y)\,d\sigma(y),
+    \qquad
+    g = -M\cdot\nu + \frac{\partial U_1}{\partial\nu}.
+    \label{eq:intro_single_layer}
+\end{equation}
+Here \(N\) is the free space Newtonian potential. After the boundary values of \(U_2\) are obtained, \(U_2\) can be recovered inside the sample by solving a harmonic extension problem. This hybrid finite element and boundary integral formulation avoids meshing a large exterior air domain and provides a natural treatment of the open boundary condition.
+
+The main computational difficulty lies in the evaluation of the boundary integral operator
+\begin{equation}
+    g \longmapsto U_2.
+\end{equation}
+A direct summation over boundary quadrature points is simple and accurate, but it leads to a dense nonlocal operation. In three dimensional simulations with many boundary degrees of freedom, this step may dominate the computational cost. Classical acceleration techniques such as the fast multipole method, hierarchical matrices, or fast summation methods can be used to reduce this cost. In this work, we investigate a complementary data driven approach that learns the boundary integral operator on a fixed geometry.
+
+The current scope of this work is deliberately limited. We first focus on the operator
+\begin{equation}
+    g|_{\partial\Omega}
+    \longmapsto
+    U_2,
+    \label{eq:intro_boundary_operator}
+\end{equation}
+which is only one component of the full demagnetizing field computation. The interior restriction of \(U_2\) is then obtained by solving the finite element Dirichlet problem
+\begin{equation}
+    \Delta U_2 = 0
+    \quad \text{in } \Omega,
+    \qquad
+    U_2 = U_{2,\Gamma}
+    \quad \text{on } \partial\Omega.
+    \label{eq:u2_harmonic_extension}
+\end{equation}
+This step is referred to as the harmonic extension, or Dirichlet harmonic lifting, of the boundary data \(U_{2,\Gamma}\) into the sample domain. The neural component is inserted only at the nonlocal boundary integral step. Consequently, the learned model acts as an accelerator for the single layer potential rather than as a black box replacement for the entire demagnetizing field solver.
+
+This staged design is useful for two reasons. First, it allows the learned operator to be validated against a deterministic direct quadrature baseline. Second, it preserves the physical and numerical structure of the existing finite element solver. After this boundary operator learning step is validated, a natural next direction is to move toward a more complete learning based pipeline, for example learning the mappings
+\begin{equation}
+    M \mapsto U_1,
+    \qquad
+    (M,U_1) \mapsto g,
+    \qquad
+    g \mapsto U_2,
+    \qquad
+    M \mapsto H_d.
+\end{equation}
+Such a fully learned demagnetizing field solver is not the goal of the first implementation, but it provides the long term direction of this project.
+
+In the following section, we formulate the boundary to potential mapping as a kernel learning problem. We first construct a direct quadrature baseline for the single layer potential, then introduce a neural kernel approximation, and finally describe how the learned boundary operator can be coupled back to the finite element demagnetizing field computation.
+
+\section{A Kernel Learning Strategy for the Boundary Potential}
+
+We regard equation \eqref{eq:intro_single_layer} as an independent boundary to potential operator learning problem in three spatial dimensions. Let
+\begin{equation}
+    \Omega \subset \mathbb{R}^3
+\end{equation}
+be the ferromagnetic sample, and let \(\Gamma=\partial\Omega\) denote its boundary surface. Given a boundary density \(g\) on \(\Gamma\), the single layer potential operator is defined by
+\begin{equation}
+    \mathcal{K}: g(y) \mapsto U_2(x),
+    \qquad
+    U_2(x) = \int_{\Gamma} N(x-y) g(y)\, dS_y,
+    \label{eq:boundary_operator}
+\end{equation}
+where \(dS_y\) is the surface measure on \(\Gamma\), and \(N\) is the three dimensional free space Newtonian potential. Following the convention used in the demagnetizing field formulation,
+\begin{equation}
+    N(r) = -\frac{1}{4\pi |r|},
+    \qquad r \in \mathbb{R}^3.
+    \label{eq:newtonian_3d}
+\end{equation}
+This sign convention is consistent with the formulation in which \(N\) satisfies
+\begin{equation}
+    \Delta N = \delta.
+\end{equation}
+If the opposite convention for the Laplace operator is used, the sign of \(N\) should be reversed.
+
+As a first numerical setting, we fix a simple three dimensional domain, for example
+\begin{equation}
+    \Omega = [0,1]^3.
+\end{equation}
+The boundary surface \(\Gamma\) is discretized by surface quadrature points
+\begin{equation}
+    \{y_j\}_{j=1}^{N_b} \subset \Gamma,
+\end{equation}
+with associated surface quadrature weights
+\begin{equation}
+    \{w_j\}_{j=1}^{N_b}.
+\end{equation}
+These quadrature points may be obtained from a triangulated surface mesh, for instance by using one or several quadrature points on each boundary triangle. The single layer potential is then approximated by
+\begin{equation}
+    U_2(x_i)
+    \approx
+    \sum_{j=1}^{N_b}
+    N(x_i-y_j) g(y_j) w_j,
+    \qquad i=1,\ldots,N_{\rm out}.
+    \label{eq:discrete_single_layer}
+\end{equation}
+This formula provides a deterministic data generator. The input is the vector of boundary density values
+\begin{equation}
+    \mathbf{g}
+    =
+    \bigl(g(y_1),\ldots,g(y_{N_b})\bigr)^T,
+\end{equation}
+and the output is the vector of potential values
+\begin{equation}
+    \mathbf{U}_2
+    =
+    \bigl(U_2(x_1),\ldots,U_2(x_{N_{\rm out}})\bigr)^T.
+\end{equation}
+
+The implementation can be developed in three stages.
+
+\paragraph{Stage 1: Direct surface quadrature baseline.}
+We first implement the direct surface quadrature formula \eqref{eq:discrete_single_layer}. For a given boundary density \(g\), the potential \(U_2\) is evaluated directly by summation. This baseline is used to verify the formula, the sign convention, the scaling, the surface quadrature weights, and the treatment of near singular or singular interactions.
+
+In three dimensions, the boundary integral is a surface integral over \(\Gamma\). If \(\Gamma\) is represented by a triangular surface mesh, then the weights \(w_j\) should approximate local surface areas. For a simple first implementation on a cube, one may discretize the six faces uniformly and assign weights according to the corresponding face grid area. For a general finite element boundary mesh, one may use triangle based quadrature rules.
+
+\paragraph{Stage 2: Learning the boundary to boundary operator.}
+Next, we learn the boundary integral operator that maps the boundary density \(g\) directly to the boundary values of the potential \(U_2\). In this stage, the target operator is
+\begin{equation}
+    \mathcal{N}_\theta:
+    g|_{\Gamma}
+    \longmapsto
+    U_2|_{\Gamma}.
+    \label{eq:learned_boundary_to_boundary_operator}
+\end{equation}
+After discretization, this operator maps the vector of boundary density values
+\begin{equation}
+    \mathbf{g}
+    =
+    \bigl(g(y_1),\ldots,g(y_{N_b})\bigr)^T
+\end{equation}
+to the vector of boundary potential values
+\begin{equation}
+    \mathbf{U}_{2,\Gamma}
+    =
+    \bigl(U_2(x_1),\ldots,U_2(x_{N_\Gamma})\bigr)^T,
+    \qquad x_i\in\Gamma.
+\end{equation}
+Here \(\{y_j\}_{j=1}^{N_b}\) are the boundary quadrature points used for integration, and \(\{x_i\}_{i=1}^{N_\Gamma}\) are the boundary output points at which the Dirichlet data for \(U_2\) are evaluated. In the simplest implementation, the same boundary discretization may be used for both sets of points, so that \(x_i=y_i\) and \(N_\Gamma=N_b\).
+
+The training labels are generated by direct surface quadrature of the single layer potential:
+\begin{equation}
+    U_{2,\Gamma}(x_i)
+    =
+    U_2(x_i)
+    \approx
+    \sum_{j=1}^{N_b}
+    N(x_i-y_j) g(y_j) w_j,
+    \qquad x_i\in\Gamma.
+    \label{eq:boundary_to_boundary_quadrature}
+\end{equation}
+Therefore, each training sample consists of an input boundary density vector \(\mathbf{g}\) and the corresponding boundary potential vector \(\mathbf{U}_{2,\Gamma}\). The neural network is trained to approximate the discrete boundary integral operator
+\begin{equation}
+    \mathbf{g}
+    \longmapsto
+    \mathbf{U}_{2,\Gamma}.
+\end{equation}
+
+Once the learned boundary operator has predicted \(U_{2,\Gamma}\), the interior restriction of \(U_2\) is obtained by solving the finite element Dirichlet problem
+\begin{equation}
+    \Delta U_2 = 0
+    \quad \text{in } \Omega,
+    \qquad
+    U_2 = U_{2,\Gamma}
+    \quad \text{on } \Gamma.
+    \label{eq:harmonic_extension_from_boundary}
+\end{equation}
+This step is the harmonic extension, or Dirichlet harmonic lifting, of the boundary potential \(U_{2,\Gamma}\) into the sample domain. In the present implementation, the neural network is responsible only for the boundary values of \(U_2\), while the finite element solver is responsible for computing the interior potential from the predicted boundary data.
+
+This choice keeps the learning problem focused on the nonlocal boundary integral step. It also preserves the elliptic structure of the interior problem, since the condition
+\begin{equation}
+    \Delta U_2 = 0
+    \quad \text{in } \Omega
+\end{equation}
+is still enforced by the finite element solve rather than by the neural network.
+
+Special care is required when evaluating \eqref{eq:boundary_to_boundary_quadrature}, because the kernel \(N(x_i-y_j)\) is weakly singular when \(x_i=y_j\). The diagonal terms should therefore be treated by analytic triangle integration, singularity subtraction, corrected surface quadrature, or another suitable singular quadrature rule. In the first implementation, this direct quadrature baseline is used both to generate training labels and to validate the sign convention, the surface weights, and the treatment of the singular terms.
+
+\paragraph{Stage 3: Coupling back to the demagnetizing field computation.}
+After the boundary to boundary operator has been validated, it is coupled back to the finite element demagnetizing field solver. We first solve
+\begin{equation}
+    \Delta U_1 = \nabla\cdot M
+    \quad \text{in } \Omega,
+    \qquad
+    U_1 = 0
+    \quad \text{on } \Gamma.
+    \label{eq:u1_problem}
+\end{equation}
+Then we compute the boundary density
+\begin{equation}
+    g
+    =
+    -M\cdot\nu
+    +
+    \frac{\partial U_1}{\partial \nu}
+    \quad \text{on } \Gamma.
+    \label{eq:boundary_density_g}
+\end{equation}
+Here \(\nu\) is the outward unit normal vector on \(\Gamma\).
+
+The learned boundary operator is then used to approximate the boundary values of \(U_2\):
+\begin{equation}
+    U_{2,\Gamma}
+    =
+    \mathcal{N}_\theta(g|_{\Gamma}).
+    \label{eq:learned_u2_boundary_values}
+\end{equation}
+These predicted boundary values are passed to the finite element solver as Dirichlet data for the interior Laplace problem
+\begin{equation}
+    \Delta U_2 = 0
+    \quad \text{in } \Omega,
+    \qquad
+    U_2 = U_{2,\Gamma}
+    \quad \text{on } \Gamma.
+    \label{eq:u2_harmonic_extension}
+\end{equation}
+Thus, the neural network replaces only the dense boundary integral evaluation, while the finite element method still enforces the harmonicity of \(U_2\) inside the sample.
+
+Finally, the demagnetizing field is recovered by
+\begin{equation}
+    H_d = -\nabla (U_1+U_2).
+\end{equation}
+
+\section{Future Extension to a Fully Learned Demagnetizing Field Solver}
+
+The boundary operator learning strategy described above is only the first stage of a broader learning based demagnetizing field solver. In the current stage, the finite element solver remains responsible for the computation of \(U_1\), the construction of the density \(g\), and the harmonic extension of \(U_2\). The learned component is restricted to the single layer potential operator
+\begin{equation}
+    g|_{\partial\Omega}
+    \longmapsto
+    U_2.
+\end{equation}
+
+After this component is validated, one may gradually replace additional parts of the classical pipeline by learned operators. One possible next step is to learn the source driven map
+\begin{equation}
+    M \longmapsto U_1,
+\end{equation}
+or equivalently the map from the volume magnetic charge \(\nabla\cdot M\) to the interior potential \(U_1\). Another possible step is to learn the boundary density construction
+\begin{equation}
+    (M,U_1)
+    \longmapsto
+    g
+    =
+    -M\cdot\nu+\frac{\partial U_1}{\partial\nu}.
+\end{equation}
+A more ambitious goal is to learn the complete demagnetizing field operator
+\begin{equation}
+    M
+    \longmapsto
+    H_d.
+\end{equation}
+Such a model would bypass the explicit computation of \(U_1\), \(g\), and \(U_2\). However, this fully learned formulation should be approached only after the individual components have been carefully tested. In particular, the learned demagnetizing field should be checked for accuracy, stability in time dependent Landau Lifshitz Gilbert simulations, and consistency with the demagnetizing energy.
+
+\section{Conclusion}
+
+This note formulates the boundary contribution in the demagnetizing field computation as a boundary to potential operator learning problem. The proposed first stage keeps the finite element Poisson solve, the construction of the boundary density, and the harmonic extension step unchanged. Only the nonlocal single layer potential evaluation is replaced or accelerated by a learned kernel operator. This provides a structured and physically interpretable way to incorporate operator learning into an existing finite element Landau Lifshitz Gilbert solver.
+
+The current focus is therefore the boundary operator
+\begin{equation}
+    g|_{\partial\Omega}
+    \longmapsto
+    U_2.
+\end{equation}
+Once this component has been validated, the same operator learning philosophy can be extended to other parts of the demagnetizing field pipeline, with the long term goal of constructing a fully learned demagnetizing field solver.
+
+\begin{thebibliography}{9}
+
+\bibitem{GarciaCervera2007}
+C.~J. Garc\'ia Cervera.
+\newblock Numerical micromagnetics: A review.
+\newblock \emph{Bolet\'in de la Sociedad Espa\~nola de Matem\'atica Aplicada}, 2007.
+
+\bibitem{LingYingZhang2026}
+S.~Ling, W.~Ying, and Z.~Zhang.
+\newblock Neural evolutionary kernel method: A knowledge guided framework for solving evolutionary PDEs.
+\newblock arXiv:2602.12872, 2026.
+
+\end{thebibliography}
+
+\end{document}
