@@ -1,0 +1,80 @@
+{
+  "data_dir": "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6",
+  "n_samples": 60,
+  "n_boundary": 2690,
+  "train_count": 48,
+  "test_count": 12,
+  "coord_min": [
+    -0.5,
+    -0.5,
+    -0.5
+  ],
+  "coord_max": [
+    0.5,
+    0.5,
+    0.5
+  ],
+  "g_range": [
+    -1.8079156986244558,
+    4.246753044333079
+  ],
+  "phi_range": [
+    -0.3423152121341988,
+    0.24971153498832402
+  ],
+  "selected_ridge_lambda": 2.6899999999999995,
+  "plots": {
+    "latent_mlp_training_loss": "/media/hdd/zkzheng/NEKM-demag/experiments/boundary_operator_feasibility/outputs/plots/latent_mlp_training_loss.png",
+    "test_relative_l2_errors": "/media/hdd/zkzheng/NEKM-demag/experiments/boundary_operator_feasibility/outputs/plots/test_relative_l2_errors.png",
+    "worst_case_boundary_errors": "/media/hdd/zkzheng/NEKM-demag/experiments/boundary_operator_feasibility/outputs/plots/worst_case_boundary_errors.png",
+    "worst_case_heldout_position": 10
+  },
+  "metrics": {
+    "mean_phi_baseline": {
+      "rel_l2_mean": 0.31602606266752487,
+      "rel_l2_median": 0.17145078589658794,
+      "rel_l2_max": 0.6624024071123983,
+      "nrmse_mean": 0.31602606266752487,
+      "rmse_mean": 0.02787123477054401,
+      "mae_mean": 0.021790847679923543
+    },
+    "scaled_g_baseline": {
+      "rel_l2_mean": 2.0055331160226473,
+      "rel_l2_median": 1.8814013588567202,
+      "rel_l2_max": 2.276800605894712,
+      "nrmse_mean": 2.005533116022647,
+      "rmse_mean": 0.19163516411595158,
+      "mae_mean": 0.13529664587731965
+    },
+    "linear_kernel_ridge": {
+      "rel_l2_mean": 0.007156582505656259,
+      "rel_l2_median": 0.005341807379639027,
+      "rel_l2_max": 0.017391430111825788,
+      "nrmse_mean": 0.007156582505656259,
+      "rmse_mean": 0.0006384092445902474,
+      "mae_mean": 0.0004770941297344979
+    },
+    "latent_mlp": {
+      "rel_l2_mean": 0.021629053651673294,
+      "rel_l2_median": 0.02074445602343221,
+      "rel_l2_max": 0.03792651572050686,
+      "nrmse_mean": 0.021629053651673294,
+      "rmse_mean": 0.002004989253250497,
+      "mae_mean": 0.001586807922846346
+    }
+  },
+  "test_samples": [
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_112803_cube_1o2_r3_extracted_from_r6_uniform_z_v0_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_115552_cube_1o2_r3_extracted_from_r6_smooth_sin_v0_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_120134_cube_1o2_r3_extracted_from_r6_smooth_sin_v2_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_121328_cube_1o2_r3_extracted_from_r6_smooth_sin_v6_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_122224_cube_1o2_r3_extracted_from_r6_smooth_sin_v9_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_124239_cube_1o2_r3_extracted_from_r6_vortex_like_v6_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_124753_cube_1o2_r3_extracted_from_r6_vortex_like_v8_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_130948_cube_1o2_r3_extracted_from_r6_flower_like_v6_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_131233_cube_1o2_r3_extracted_from_r6_flower_like_v7_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_144040_cube_1o2_r3_extracted_from_r6_cube_dmi_neel_v3_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_144431_cube_1o2_r3_extracted_from_r6_cube_dmi_neel_v4_2690bdof/boundary_phi2_2690bdof.dat",
+    "/home/zkzheng/AMGX-afemag/examples/demag_timing_5/results_extracted_r3_from_r6/20260602_145543_cube_1o2_r3_extracted_from_r6_cube_dmi_neel_v7_2690bdof/boundary_phi2_2690bdof.dat"
+  ]
+}
